@@ -1,1 +1,6 @@
-{ "cleanUrls": true }
+{
+  "cleanUrls": true,
+  "outputDirectory": "public",
+  "functions": { "api/admin.js": { "includeFiles": "private/admin.html" } },
+  "rewrites": [{ "source": "/admin", "destination": "/api/admin" }]
+}

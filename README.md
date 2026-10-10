@@ -17,3 +17,10 @@ Every push to GitHub redeploys automatically.
 ## Use it
 - Website: your-project.vercel.app
 - Dashboard: your-project.vercel.app/admin (sign in, add a saree with photos, price, sizes, description). It appears on the website instantly.
+
+## Lock the admin page with environment variables
+Vercel > Project > Settings > Environment Variables, add (for Production, Preview, Development):
+- ADMIN_USER = your chosen username
+- ADMIN_PASS = a long password
+Then Deployments > Redeploy. Visiting /admin now asks for this username and password before the page is even sent.
+The page lives in /private and is not publicly downloadable. You still sign in with your Supabase email/password inside the dashboard.
