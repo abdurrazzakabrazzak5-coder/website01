@@ -1,0 +1,69 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard | Rupkotha Dream</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><a class="brand" href="/">Rupkotha Dream</a><button class="btn ghost sm" id="out" hidden>Sign out</button></header>
+<div id="login" class="login" hidden><h2>Owner sign in</h2><input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Password" autocomplete="current-password"><button class="btn" id="go">Sign in</button><p class="msg" id="lm"></p></div>
+<div id="app" class="wrap" hidden>
+<h1>Dashboard</h1>
+<div class="stats"><div class="stat"><b id="s1">0</b>Products</div><div class="stat"><b id="s2">0</b>In stock</div><div class="stat"><b id="s3">0</b>Sold out</div></div>
+<h2>Add a saree</h2>
+<div class="f" id="form">
+<div><label>Name</label><input id="n"></div>
+<div><label>Category</label><select id="c"><option>Jamdani</option><option>Katan</option><option>Silk</option><option>Cotton</option><option>Benarasi</option><option>Georgette</option><option>Party wear</option></select></div>
+<div><label>Price (৳)</label><input id="p" type="number" min="0"></div>
+<div><label>Old price (optional)</label><input id="o" type="number" min="0"></div>
+<div class="full"><label>Sizes / options, comma separated (e.g. Free size, 6 yard)</label><input id="sz" value="Free size"></div>
+<div class="full"><label>Description</label><textarea id="d" rows="4"></textarea></div>
+<div class="full"><label>Photos (select several)</label><input id="im" type="file" accept="image/*" multiple><div class="pv" id="pv"></div></div>
+<div class="full"><button class="btn" id="save">Publish product</button> <span class="msg" id="m"></span></div>
+</div>
+<h2>Your products</h2>
+<div style="overflow-x:auto"><table><tbody id="rows"></tbody></table></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_KEY);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function init(){
+  const {data:{session}}=await db.auth.getSession();
+  $('#login').hidden=!!session;$('#app').hidden=!session;$('#out').hidden=!session;
+  if(session)load();
+}
+$('#go').onclick=async()=>{
+  const {error}=await db.auth.signInWithPassword({email:$('#em').value,password:$('#pw').value});
+  if(error)$('#lm').textContent='Wrong email or password.';else init();
+};
+$('#out').onclick=async()=>{await db.auth.signOut();init()};
+$('#im').onchange=e=>{$('#pv').innerHTML=[...e.target.files].map(f=>`<img src="${URL.createObjectURL(f)}" alt="">`).join('')};
+async function load(){
+  const {data=[]}=await db.from('products').select('*').order('created_at',{ascending:false});
+  $('#s1').textContent=data.length;$('#s2').textContent=data.filter(p=>p.in_stock).length;$('#s3').textContent=data.filter(p=>!p.in_stock).length;
+  $('#rows').innerHTML=data.length?data.map(p=>`<tr><td><img src="${esc(p.images?.[0]||'')}" alt=""></td><td>${esc(p.name)}<br><small>${esc(p.category)}</small></td><td>৳${p.price}</td><td>${p.in_stock?'In stock':'Sold out'}</td><td><button class="btn ghost sm" onclick="tog('${p.id}',${!p.in_stock})">${p.in_stock?'Mark sold out':'Mark in stock'}</button> <button class="btn ghost sm" onclick="del('${p.id}')">Delete</button></td></tr>`).join(''):'<tr><td>No products yet. Add your first saree above.</td></tr>';
+}
+$('#save').onclick=async()=>{
+  const files=[...$('#im').files],m=$('#m');
+  if(!$('#n').value||!$('#p').value||!files.length){m.textContent='Add a name, price and at least one photo.';return}
+  $('#save').disabled=true;m.textContent='Uploading photos...';
+  try{
+    const urls=[];
+    for(const [i,f] of files.entries()){
+      const path=`${Date.now()}-${i}-${f.name.replace(/[^\w.]/g,'_')}`;
+      const {error}=await db.storage.from('products').upload(path,f);
+      if(error)throw error;
+      urls.push(db.storage.from('products').getPublicUrl(path).data.publicUrl);
+    }
+    const {error}=await db.from('products').insert({name:$('#n').value,category:$('#c').value,price:+$('#p').value,old_price:$('#o').value?+$('#o').value:null,sizes:$('#sz').value,description:$('#d').value,images:urls});
+    if(error)throw error;
+    m.textContent='Published. It is now live on your website.';
+    ['n','p','o','d','im'].forEach(k=>$('#'+k).value='');$('#pv').innerHTML='';load();
+  }catch(e){m.textContent='Failed: '+e.message}
+  $('#save').disabled=false;
+};
+async function tog(id,v){await db.from('products').update({in_stock:v}).eq('id',id);load()}
+async function del(id){if(confirm('Delete this product?')){await db.from('products').delete().eq('id',id);load()}}
+init();
+</script></body></html>

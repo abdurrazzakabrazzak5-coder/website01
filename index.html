@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rupkotha Dream | Sarees</title>
+<meta name="description" content="Handpicked sarees from Rupkotha Dream.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><a class="brand" href="/">Rupkotha Dream</a><a class="btn ghost sm" href="admin.html">Admin</a></header>
+<section class="hero"><h1>Sarees, woven like a story.</h1><p>Handpicked drapes for weddings, festivals and every day you want to remember.</p></section>
+<div class="bar"><input id="q" placeholder="Search sarees" aria-label="Search"><select id="cat" aria-label="Category"><option value="">All categories</option></select></div>
+<main id="grid" class="grid"></main>
+<dialog id="dlg"><div class="m" id="mb"></div></dialog>
+<footer>© Rupkotha Dream</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_KEY);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tk=n=>'৳'+Number(n).toLocaleString('en-IN');
+let all=[];
+(async()=>{
+  const {data,error}=await db.from('products').select('*').order('created_at',{ascending:false});
+  if(error){$('#grid').innerHTML='<p class="empty">Could not load products. Check config.js.</p>';return}
+  all=data;
+  [...new Set(all.map(p=>p.category).filter(Boolean))].forEach(c=>$('#cat').insertAdjacentHTML('beforeend',`<option>${esc(c)}</option>`));
+  render();
+})();
+function render(){
+  const q=$('#q').value.toLowerCase(),c=$('#cat').value;
+  const list=all.filter(p=>(!c||p.category===c)&&p.name.toLowerCase().includes(q));
+  $('#grid').innerHTML=list.length?list.map(p=>`<button class="p" onclick="openP('${p.id}')"><div class="im" style="background-image:url('${esc(p.images?.[0]||'')}')">${p.in_stock?'':'<span class="tag">Sold out</span>'}</div><h3>${esc(p.name)}</h3><div class="price">${tk(p.price)}${p.old_price?`<s>${tk(p.old_price)}</s>`:''}</div></button>`).join(''):'<p class="empty">No sarees found yet.</p>';
+}
+$('#q').oninput=render;$('#cat').onchange=render;
+let size='';
+function openP(id){
+  const p=all.find(x=>x.id===id);size='';
+  const sizes=(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
+  $('#mb').innerHTML=`<div><img class="big" id="big" src="${esc(p.images?.[0]||'')}" alt="${esc(p.name)}"><div class="th">${(p.images||[]).map(u=>`<img src="${esc(u)}" alt="" onclick="big.src=this.src">`).join('')}</div></div>
+  <div><h2>${esc(p.name)}</h2><p class="price" style="font-size:1.3rem">${tk(p.price)}${p.old_price?`<s>${tk(p.old_price)}</s>`:''}</p>
+  <p style="white-space:pre-line;color:var(--muted)">${esc(p.description)}</p>
+  ${sizes.length?`<b>Size</b><div class="sz">${sizes.map(s=>`<button onclick="pick(this)">${esc(s)}</button>`).join('')}</div>`:''}
+  ${p.in_stock?`<a class="btn" id="ord" target="_blank" rel="noopener">Order on WhatsApp</a>`:'<b>Sold out</b>'}
+  <button class="btn ghost" onclick="dlg.close()">Close</button></div>`;
+  if(p.in_stock)$('#ord').onclick=e=>{e.currentTarget.href=`https://wa.me/${CFG.WHATSAPP}?text=${encodeURIComponent(`Hi, I want to order: ${p.name}${size?' (Size: '+size+')':''} - ${tk(p.price)}\n${p.images?.[0]||''}`)}`};
+  $('#dlg').showModal();
+}
+function pick(b){document.querySelectorAll('.sz button').forEach(x=>x.classList.remove('on'));b.classList.add('on');size=b.textContent}
+</script></body></html>
